@@ -52,7 +52,7 @@ gini <- function(dist) {
   as.numeric(g)
 }
 
-estimate_q <- function(dist, q = 10) {
+estimate_q <- function(dist, q = 10, nbsamp = 10000) {
   o <- dist / sum(dist)
 
   fn <- function(params) {
@@ -75,7 +75,7 @@ unis$RAW_GINI <- sapply(unis$INSTITUTION_CODE, \(code) {
 
 unis$ESTIMATED_GINI <- sapply(unis$INSTITUTION_CODE, \(code) {
   cleaned <- clean_uni(code)
-  q <- estimate_q(cleaned$value)
+  q <- estimate_q(cleaned$value, q = 100)
   gini(q[-1])
 })
 
