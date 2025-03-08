@@ -1,7 +1,7 @@
 rm(list = ls(all = TRUE))
 # Load data
-unis <- read.csv("finalbis.csv")
-
+unis <- read.csv("data/finalbis.csv")
+data$continuation <- as.numeric(data$continuation)
 
 # Ethnic Diversity Index Computation: https://www.ed-data.org/article/Ethnic-Diversity-Index
 
