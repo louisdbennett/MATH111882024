@@ -68,10 +68,7 @@ unis.mod <- unis[, c('career_after_15_month', scale_cols, 'russell')]
 # Part 1: Basic Linear Regression Model
 
 # define a formula here
-formula <- career_after_15_month ~
-  estimated_gini +
-  ethnic_diversity_index +
-  russell
+formula <- career_after_15_month ~ estimated_gini + ethnic_diversity_index + russell + Men
 
 # define priors here
 prec.prior <- list(phi = list(prior = "loggamma", param = c(1, 0.01)))
@@ -88,7 +85,9 @@ inlamod <- INLA::inla(
   data = unis,
   family = 'Beta',
   control.family = list(hyper = prec.prior),
-  control.fixed = beta.prior
+  control.fixed = beta.prior,
+  control.predictor = list(compute = TRUE), 
+  control.compute   = list(dic = TRUE, waic = TRUE, cpo = TRUE)
 )
 
 summary(inlamod)
