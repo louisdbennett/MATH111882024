@@ -8,12 +8,6 @@ unis$continuation <- as.numeric(unis$continuation)
 # covert POLAR4 %ages to numbers
 unis[, paste0('POLAR4.Q', 1:5)] <- unis[, paste0('POLAR4.Q', 1:5)] * unis$Total
 
-unis$continuation <- as.numeric(unis$continuation) / 100
-unis$satisfied_teaching <- unis$satisfied_teaching / 100
-unis$career_after_15_month <- unis$career_after_15_month / 100
-unis$satisfied_feedback <- unis$satisfied_teaching / 100
-
-
 # Add Ethnic Diversity Index
 c1 <- 100
 c2 <- -100 * sqrt(5 * (5 - 1)) / (5 - 1)
@@ -27,36 +21,26 @@ unis$ethnic_diversity_index <- c1 +
         (unis$Other.ethnic.group - 0.2)^2
     )
 
-# Add Russell Group Uni factor
-unis$russell <- FALSE
-russell_codes <- c(
-  "B32",
-  "B78",
-  "C05",
-  "C15",
-  "D86",
-  "E56",
-  "E84",
-  "G28",
-  "I50",
-  "K60",
-  "L23",
-  "L41",
-  "L72",
-  "M20",
-  "N21",
-  "N84",
-  "O33",
-  "Q50",
-  "Q75",
-  "S18",
-  "S27",
-  "U80",
-  "W20",
-  "Y50"
-)
-unis[unis$INSTITUTION_CODE %in% russell_codes, ]$russell <- TRUE
+# scale covariates
+unis$continuation <- as.numeric(unis$continuation) / 100
+unis$satisfied_teaching <- unis$satisfied_teaching / 100
+unis$career_after_15_month <- unis$career_after_15_month / 100
+unis$satisfied_feedback <- unis$satisfied_teaching / 100
 
+# Add Russell Group Uni factor
+russell <- FALSE
+russell_codes <- c(
+  "B32", "B78", "C05", "C15", 
+  "D86", "E56", "E84", "G28", 
+  "I50", "K60", "L23", "L41", 
+  "L72", "M20", "N21", "N84", 
+  "O33", "Q50", "Q75", "S18", 
+  "S27", "U80", "W20","Y50"
+)
+russell[unis$INSTITUTION_CODE %in% russell_codes] <- TRUE
+unis$russell <- russell
+
+# estimate the gini coefficient for each uni
 unis$estimated_gini <- sapply(unis$INSTITUTION_CODE, \(code) {
   cleaned <- clean_uni(code)
   q <- estimate_q(cleaned$value, q = 10000)
@@ -66,6 +50,7 @@ unis$estimated_gini <- sapply(unis$INSTITUTION_CODE, \(code) {
 # Task: Predicting graduate employability and the most predictive features
 # Part 1: Basic Linear Regression Model
 
+# define a formula here
 formula <- career_after_15_month ~
   Women +
   russell +
@@ -79,11 +64,7 @@ formula <- career_after_15_month ~
   satisfied_teaching + 
   satisfied_feedback
 
-mod1 <- glm(
-  formula, data = unis, family = quasibinomial
-)
-summary(mod1)
-
+# define priors here
 prec.prior <- list(phi = list(prior = "loggamma", param = c(1, 0.01)))
 
 beta.prior <- list(
