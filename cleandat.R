@@ -21,14 +21,11 @@ unis$ethnic_diversity_index <- c1 +
         (unis$Other.ethnic.group - 0.2)^2
     )
 
-# scale covariates
-unis$continuation <- as.numeric(unis$continuation) / 100
-unis$satisfied_teaching <- unis$satisfied_teaching / 100
+# ensure career after 15 is within 0-1
 unis$career_after_15_month <- unis$career_after_15_month / 100
-unis$satisfied_feedback <- unis$satisfied_teaching / 100
 
 # Add Russell Group Uni factor
-russell <- FALSE
+russell <- rep(FALSE, NROW(unis))
 russell_codes <- c(
   "B32", "B78", "C05", "C15", 
   "D86", "E56", "E84", "G28", 
@@ -47,22 +44,34 @@ unis$estimated_gini <- sapply(unis$INSTITUTION_CODE, \(code) {
   gini(q[-1])
 })
 
+# scale all the covariates as this makes the interpration of coefficients later better
+scale_cols <- c(
+  'Men',
+  'satisfied_teaching',
+  'satisfied_feedback',
+  'avg_entry_tariff',
+  'spent_per_student',
+  'added_value',
+  'continuation',
+  'estimated_gini',
+  'ethnic_diversity_index',
+  'students_staff_ratio',
+  'Total'
+)
+
+for(col in scale_cols) {
+  unis[, col] <- unis[, col] - mean(unis[, col], na.rm = TRUE)
+}
+
+unis.mod <- unis[, c('career_after_15_month', scale_cols, 'russell')]
 # Task: Predicting graduate employability and the most predictive features
 # Part 1: Basic Linear Regression Model
 
 # define a formula here
 formula <- career_after_15_month ~
-  Women +
-  russell +
-  ethnic_diversity_index +
   estimated_gini +
-  continuation +
-  spent_per_student +
-  students_staff_ratio +
-  added_value +
-  avg_entry_tariff +
-  satisfied_teaching + 
-  satisfied_feedback
+  ethnic_diversity_index +
+  russell
 
 # define priors here
 prec.prior <- list(phi = list(prior = "loggamma", param = c(1, 0.01)))
