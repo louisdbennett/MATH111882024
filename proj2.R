@@ -47,28 +47,28 @@ unis$estimated_gini <- sapply(unis$INSTITUTION_CODE, \(code) {
 # scale all the covariates as this makes the interpration of coefficients later better
 scale_cols <- c(
   'Men',
-  'satisfied_teaching',
-  'satisfied_feedback',
-  'avg_entry_tariff',
-  'spent_per_student',
-  'added_value',
-  'continuation',
+  # 'satisfied_teaching',
+  # 'satisfied_feedback',
+  # 'avg_entry_tariff',
+  # 'spent_per_student',
+  # 'added_value',
+  # 'continuation',
   'estimated_gini',
-  'ethnic_diversity_index',
-  'students_staff_ratio',
-  'Total'
+  'ethnic_diversity_index'
+  # 'students_staff_ratio',
+  # 'Total'
 )
 
 for(col in scale_cols) {
-  unis[, col] <- unis[, col] - mean(unis[, col], na.rm = TRUE)
+  unis[, paste0(col, '_ctr')] <- unis[, col] - mean(unis[, col], na.rm = TRUE)
 }
 
-unis.mod <- unis[, c('career_after_15_month', scale_cols, 'russell')]
+unis.mod <- unis[, c('career_after_15_month', paste0(scale_cols, '_ctr'), 'russell')]
 # Task: Predicting graduate employability and the most predictive features
 # Part 1: Basic Linear Regression Model
 
 # define a formula here
-formula <- career_after_15_month ~ estimated_gini + ethnic_diversity_index + russell + Men
+formula <- career_after_15_month ~ estimated_gini_ctr + ethnic_diversity_index_ctr + Men_ctr + russell
 
 # define priors here
 prec.prior <- list(phi = list(prior = "loggamma", param = c(1, 0.01)))
@@ -82,7 +82,7 @@ beta.prior <- list(
 
 inlamod <- INLA::inla(
   formula = formula,
-  data = unis,
+  data = unis.mod,
   family = 'Beta',
   control.family = list(hyper = prec.prior),
   control.fixed = beta.prior,
@@ -91,3 +91,57 @@ inlamod <- INLA::inla(
 )
 
 summary(inlamod)
+
+plot(inlamod$marginals.fixed[['(Intercept)']], type = 'l')
+plot(inlamod$marginals.fixed[['estimated_gini_ctr']], type = 'l')
+plot(inlamod$marginals.fixed[['Men_ctr']], type = 'l')
+plot(inlamod$marginals.fixed[['ethnic_diversity_index_ctr']], type = 'l')
+
+# fitting with predictions
+ethnic_diversity_index <- seq(0, 100, 2.5)
+ethnic_diversity_index_ctr <- ethnic_diversity_index - mean(unis$ethnic_diversity_index)
+
+gini <- seq(0, 0.5, 0.01)
+gini_ctr <- gini - mean(unis$gini)
+
+Men <- seq(0.2, 0.8, 0.05)
+Men_ctr <- Men - mean(unis$Men)
+
+newdata <- rbind(
+  data.frame(
+    career_after_15_month = NA,
+    russell = TRUE,
+    estimated_gini = 0,
+    estimated_gini_ctr = 0,
+    ethnic_diversity_index = 0,
+    ethnic_diversity_index_ctr  = 0,
+    Men = Men,
+    Men_ctr = Men_ctr 
+  ),
+  data.frame(
+    career_after_15_month = NA,
+    russell = FALSE,
+    estimated_gini = 0,
+    estimated_gini_ctr = 0,
+    ethnic_diversity_index = 0,
+    ethnic_diversity_index_ctr = 0,
+    Men = Men,
+    Men_ctr = Men_ctr
+  )
+)
+
+inlamod.pred <- INLA::inla(
+  formula = formula,
+  data = dplyr::bind_rows(newdata, unis.mod),
+  family = 'Beta',
+  control.family = list(hyper = prec.prior),
+  control.fixed = beta.prior,
+  control.predictor = list(compute = TRUE, link = 1),
+  control.compute = list(config = TRUE)
+)
+
+pred <- inlamod.pred$summary.fitted.values$mean
+
+plot(x = unis$Men, y = unis$career_after_15_month)
+lines(Men, pred[1:length(Men)], col="red",lwd=3)
+lines(Men, pred[(length(Men) + 1):(2 * length(Men))], col="blue",lwd=3)
