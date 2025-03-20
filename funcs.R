@@ -44,3 +44,88 @@ clean_uni <- function(code) {
     , `:=`(cum.value = cumsum(value) / sum(value), cum.prop = seq(0, 1, by = 0.2))
   ]
 }
+
+plot_predictions <- function(model, unis, formula, variable_name, n.grid = 50, ...) {
+  var <- unis[[variable_name]]
+  range <- seq(min(var), max(var), length.out = n.grid)
+
+  # extract variables from the model object
+  poss.vars <- gsub('_ctr', '', names(model$marginals.fixed))
+  poss.vars <- poss.vars[poss.vars != "(Intercept)"]
+  categorical.vars <- gsub('TRUE', '', poss.vars[endsWith(poss.vars, 'TRUE')])
+  poss.vars <- poss.vars[!endsWith(poss.vars, 'TRUE')]
+
+  newdata <- lapply(categorical.vars, \(x) {
+    temp <- data.frame(
+      x = c(rep(TRUE, length(range)), rep(FALSE, length(range)))
+    )
+    colnames(temp) <- x
+
+    for(i in poss.vars) {
+      temp[paste0(poss.vars, '_ctr')] <- 0
+    }
+
+    temp[variable_name] <- range
+    temp[paste0(variable_name, '_ctr')] <- range - mean(var)
+
+    temp
+  }) |> 
+    dplyr::bind_rows()
+
+  newdata[is.na(newdata)] <- FALSE
+
+  inlamod.pred <- INLA::inla(
+    formula = formula,
+    data = dplyr::bind_rows(newdata, unis),
+    family = 'Beta',
+    control.family = list(hyper = prec.prior),
+    control.fixed = beta.prior,
+    control.predictor = list(compute = TRUE, link = 1),
+    control.compute = list(config = TRUE)
+  )
+  
+  pred <- inlamod.pred$summary.fitted.values$mean
+
+  plot(x = var, y = unis$career_after_15_month, ...)
+  lines(range, pred[1:length(range)], col = "red", lwd = 3)
+  lines(
+    range,
+    pred[(length(range) + 1):(2 * length(range))],
+    col = "blue",
+    lwd = 3
+  )
+}
+
+plot_lorentz_curve <- function(c.prop, c.value) {
+  ggplot2::ggplot(mapping = ggplot2::aes(x = c.prop, y = c.value)) +
+    ggplot2::geom_ribbon(
+      ggplot2::aes(ymax = c.prop, ymin = c.value), fill = "#007a3e", alpha = 0.2
+    ) +
+    ggplot2::geom_point() +
+    ggplot2::geom_line() +
+    ggplot2::geom_abline(
+      slope = 1, intercept = 0
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::scale_x_continuous(limits = c(0, NA)) +
+    ggplot2::scale_y_continuous(limits = c(0, NA)) +
+    ggplot2::theme(
+      axis.title = ggplot2::element_blank()
+    )
+}
+
+ilogit <- function(x) 1 / (1 + exp(-x))
+
+calc_metrics <- function(formula) {
+  inlamod.form <- INLA::inla(
+    formula = formula,
+    data = unis.mod,
+    family = 'Beta',
+    control.family = list(hyper = prec.prior),
+    control.fixed = beta.prior,
+    control.predictor = list(compute = TRUE), 
+    control.compute   = list(dic = TRUE, cpo = TRUE)
+  )
+  
+  list(nslcpo = -sum(log(inlamod.form$cpo$cpo)), dic = inlamod.form$dic$dic)
+}

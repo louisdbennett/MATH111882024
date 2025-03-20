@@ -79,14 +79,19 @@ unis$ESTIMATED_GINI <- sapply(unis$INSTITUTION_CODE, \(code) {
   gini(q[-1])
 })
 
-code <- 'Y75'
+code <- 'C05'
 cleaned <- clean_uni(code)
 
-plot_lorentz_curve(cleaned$cum.prop, cleaned$cum.value) +
-  ggplot2::ggtitle(glue::glue("Lorentz curve of student proportion by POLAR4 quintile in {code}"))
+base <- plot_lorentz_curve(cleaned$cum.prop, cleaned$cum.value) + ggplot2::ggtitle('q = 5')
 
-est.c.val <- cumsum(estimate_q(cleaned$value))
+est.c.val <- cumsum(estimate_q(cleaned$value, q = 10000))
 c.prop <- seq(0, 1, length.out = length(est.c.val))
 
-plot_lorentz_curve(c.prop, est.c.val) +
-  ggplot2::ggtitle(glue::glue("Estimated Lorentz curve of student proportion by POLAR4 quintile in {code}"))
+est <- plot_lorentz_curve(c.prop, est.c.val) + ggplot2::ggtitle('q = 10000')
+
+library(patchwork)
+
+p <- base + est +
+  patchwork::plot_annotation(title = 'Comparison of Lorenz curves by POLAR4 for the two methods')
+
+ggplot2::ggsave('plots/lorenz.png', plot = base + est, width = 6, height = 3, units = 'in')
